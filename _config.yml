@@ -1,0 +1,21 @@
+# Dependencies
+markdown:         redcarpet
+highlighter:      pygments
+
+# gems
+gems: [jekyll-paginate, jekyll-gist]
+paginate:         5
+
+# Permalinks
+permalink:        pretty
+
+# Setup
+title:            Patrick's Blog
+description:      'Howdy, welcome to my blog. Random posts on open source, web technologies, Linux et cetera can be found here.'
+baseurl:          /
+
+
+# Social URLs
+github-url: https://github.com/PaddySmalls
+linkedin-url: https://de.linkedin.com/in/pkleindienst
+twitter-url: https://twitter.com/Apophis1990
