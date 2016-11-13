@@ -18,3 +18,5 @@ baseurl:          /
 github-url: https://github.com/PaddySmalls
 linkedin-url: https://de.linkedin.com/in/pkleindienst
 twitter-url: https://twitter.com/Apophis1990
+
+#excerpt_separator: "<!--more-->"
