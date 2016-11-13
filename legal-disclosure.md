@@ -12,7 +12,7 @@ Gerstenhalde 17<br/>
 
 ### Contact
 
-E-Mail: patrick.kleindienst[at]web.de
+E-Mail: patrick.kleindienst[at]web[dot]de
 
 
 ### Disclaimer

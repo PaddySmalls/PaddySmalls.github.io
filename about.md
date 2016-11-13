@@ -3,30 +3,20 @@ layout: page
 title: About me
 ---
 
-<img src="{{site.url}}/assets/author.jpg" class="img-circle" width="40%" height="40%">
+<br/>
+<img src="{{site.url}}/assets/author.jpg" class="img-circle" width="30%" height="30%">
 
-<p class="message">
-  Hey there! This page is included as an example. Feel free to customize it for your own use upon downloading. Carry on!
-</p>
+Hi, my name is Patrick. Currently, I'm a computer science grad student at Stuttgart Media University and also
+work as an intern at Bertsch Innovation GmbH. <br/>
+Over the past few years, I developed a strong focus on a bunch of topics:
 
-In the novel, *The Strange Case of Dr. Jeykll and Mr. Hyde*, Mr. Poole is Dr. Jekyll's virtuous and loyal butler. Similarly, Poole is an upstanding and effective butler that helps you build Jekyll themes. It's made by [@mdo](https://twitter.com/mdo).
+- Backend development (especially in Java)
+- Open Source
+- Distributed Systems
+- Linux and operating systems in general
 
-There are currently two themes built on Poole:
-
-* [Hyde](http://hyde.getpoole.com)
-* [Lanyon](http://lanyon.getpoole.com)
-
-Learn more and contribute on [GitHub](https://github.com/poole).
-
-## Setup
-
-Some fun facts about the setup of this project include:
-
-* Built for [Jekyll](http://jekyllrb.com)
-* Developed on GitHub and hosted for free on [GitHub Pages](https://pages.github.com)
-* Coded with [Sublime Text 2](http://sublimetext.com), an amazing code editor
-* Designed and developed while listening to music like [Blood Bros Trilogy](https://soundcloud.com/maddecent/sets/blood-bros-series)
-
-Have questions or suggestions? Feel free to [open an issue on GitHub](https://github.com/poole/issues/new) or [ask me on Twitter](https://twitter.com/mdo).
+Therefore, most of the content I'm producing will be heavily related to these subjects. 
+If you like my posts or you want to bring upany questions, comments or constructive criticism, 
+feel free to contact me on [Twitter](https://twitter.com/Apophis1990).   
 
 Thanks for reading!
