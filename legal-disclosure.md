@@ -1,6 +1,7 @@
 ---
 layout: page
 title: Legal Disclosure
+weight: 4
 ---
 
 

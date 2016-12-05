@@ -1,6 +1,7 @@
 ---
 layout: page
 title: About me
+weight: 3
 ---
 
 <br/>
