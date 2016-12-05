@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Home
+weight: 1
 ---
 
 <div class="posts">
@@ -15,7 +16,7 @@ title: Home
         <span class="post-date">{{ post.date | date_to_string }}</span>
         {% if post.content contains '<!--more-->' %}
             {{ post.content | split:'<!--more-->' | first }}
-            <br/><a href="{{ post.url }}">Read more</a>
+            <a href="{{ post.url }}">>> Read more</a>
         {% else %}
             {{ post.content }}
         {% endif %}
