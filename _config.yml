@@ -10,7 +10,8 @@ permalink:        pretty
 
 # Setup
 title:            Patrick's Blog
-description:      'Howdy, welcome to my blog. Random posts on open source, web technologies, Linux et cetera can be found here.'
+description:      'Howdy, welcome to my blog! Random stuff on open source, web technologies, Linux and much more can be
+found here.'
 baseurl:          /
 
 
@@ -18,5 +19,3 @@ baseurl:          /
 github-url: https://github.com/PaddySmalls
 linkedin-url: https://de.linkedin.com/in/pkleindienst
 twitter-url: https://twitter.com/Apophis1990
-
-#excerpt_separator: "<!--more-->"
