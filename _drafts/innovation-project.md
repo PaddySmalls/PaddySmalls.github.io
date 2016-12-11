@@ -277,21 +277,21 @@ The _weatherApiFallback_ method, which is specified by means of an annotation pa
 signature as the Hystrix-wrapped method, looks as follows:
   
 {% highlight java %}
-    public WeatherResponseObject 
-        weatherApiFallback(String zipCode, String countryCode) {
-        
-        WeatherResponseObject responseObject = 
-            weatherDataCache
+public WeatherResponseObject 
+    weatherApiFallback(String zipCode, String countryCode) 
+ { 
+    WeatherResponseObject responseObject = 
+        weatherDataCache
             .lookup(zipCode)
             .orElse(WeatherResponseObject.getEmpty());
             
-        if (responseObject.isCached()) {
-            responseObject.setMessage(
-                "CAUTION - Response out of date!");
+    if (responseObject.isCached()) {
+        responseObject
+            .setMessage("CAUTION - Response out of date!");
         }
         
-        return responseObject;
-    }
+    return responseObject;
+ }
 {% endhighlight %}
 
 If there's, for whatever reason, just a cached result available, the fallback method attaches a message to the result
@@ -364,10 +364,11 @@ eureka:
 
 There's a couple of interesting this here. The first issue I ran into was that I didn't turn off the Eureka server's 
 client behavior. It's important to know that by default every Eureka server is also a Eureka client and searches for 
-other peers after startup. However, once again I decided on keeping thing simple and restrained the service discovery
-part to a single Eureka node running in standalone mode. Therefore, I fully disabled the client behavior by setting 
-the appropriate attributes to "false" in the configuration file which keeps Eureka from throwing exceptions on 
-execution.  
+other Eureka peers after startup (this mode is calles "peer mode"). However, once again I decided on keeping thing 
+simple and restrained the service 
+discovery part to a single Eureka node running in standalone mode. Therefore, I fully disabled the client behavior by
+setting the appropriate attributes to "false" in the configuration file which starts Eureka in "standalone mode" and 
+keeps it from from throwing exceptions on execution.  
 
 
 ### Registering the producer service with Eureka 
@@ -401,26 +402,161 @@ producer service on a single host. Moreover, we actually don't even care about
 port the producer application runs on because we don't have to know about that. Since every producer registers with our 
 service discovery, we can do a lookup and fetch the network address if necessary.   
 You might have noticed that I address the host "eureka" within the _serviceUrl_ attribute value. Once again, this 
-keeps me from having to hard code an IP address, in this case the Eureka server host's one. What allows me to do that
- is a networking feature provided by Docker. I will cover this later.
+keeps me from having to hard code an IP address, in this case the Eureka server host's one. What allows me to address
+the Eureka server by name is a special networking feature provided by Docker. I will cover this later.
    
+
 
 ### Looking up the producer service from the consumer-side   
 
+Now that we're able to start an arbitrary number of producer instances and register them with Eureka service discovery,
+the consumer service must be enabled to perform _lookups_ thereby receive the network address of any available
+producer service. For that purpose, Spring Cloud offers a client API for hitting Eureka and fetching discovery data. 
+The special thing about that API is that there's no constraint to use it along with Eureka. If you prefer working 
+with alternative service discovery tools like [Apache ZooKeeper](https://zookeeper.apache.org/) or [Consul by 
+HashiCorp](https://www.consul.io/), you're free to do so. For my project, two reasons made me use Eureka: First, that
+allowed me to stay within the Netflix OSS ecosystem. Second, Eureka offers a very nice GUI which is more practical 
+for demo purposes than e.g. the ZooKeeper CLI (which I still consider very handy).   
+    
+    
+
 {% highlight java %}
-    @HystrixCommand(fallbackMethod = "producerRequestFallback")
-       public WeatherResponseObject requestProducerService(String zipCode, String countryCode) {
-           ServiceInstance producerInstance = loadBalancerClient.choose(PRODUCER_SERVICE_ID);
+@HystrixCommand(fallbackMethod = "producerRequestFallback")
+public WeatherResponseObject 
+    requestProducerService(String zipCode, String countryCode) 
+ {
+    ServiceInstance producerInstance = 
+        loadBalancerClient.choose(PRODUCER_SERVICE_ID);
    
-           WeatherResponseObject response = new RestTemplate().getForObject(buildURI(producerInstance),
-                   WeatherResponseObject.class, toRequestParamMap(zipCode, countryCode));
+    WeatherResponseObject response = new RestTemplate()
+        .getForObject(
+            buildURI(producerInstance),
+            WeatherResponseObject.class, 
+            toRequestParamMap(zipCode, countryCode)
+        );
    
-           weatherDataCache.store(zipCode, response);
+    weatherDataCache.store(zipCode, response);
    
-           return response;
-       } 
+    return response;
+ } 
 {% endhighlight %}
 
+
+
+### Client-side load balancing with Ribbon
+
+For my weather consumer service, I didn't apply the standard _DiscoveryClient_ implementation as described above. 
+Instead, I chose to give _Ribbon_ a try, which is a Netflix library for client-side load balancing. Note that this 
+does not mean that there's no load balancing offered by the _DiscoveryClient_ class. However, it's built-in load 
+balancing capabilities are restricted to a naive round-robin approach, whereas Ribbon supports different load 
+balancing rules, different protocols beyond HTTP ([gRPC](http://www.grpc.io/) support is work in progress) and also 
+caching. 
+Using Ribbon is very simple: For my Spring Boot consumer, I simply put the required dependencies on classpath and 
+added the _@EnableEurekaClient_ annotation to the main class. Then, you can obtain a _LoadBalancerClient_ instance 
+from the Spring context via dependency injection. That's it. From then on, we can ask the _LoadBalancerClient_ instance 
+for a remote service address by passing it the name of the service we want to hit. Ribbon fetches the list of 
+available servers from Eureka, performs its load balancing magic and returns a single _ServiceInstance_ object, which
+contains IP address and port which can in turn be used to setup an HTTP request.
+Since reaching out to RESTful APIs via HTTP often results in boilerplate code, Spring Cloud also integrates 
+[Feign](https://github.com/OpenFeign/feign), a library which aims at keeping developers from writing the same code 
+for speaking with remote APIs over and over again. Its approach is completely declarative, meaning that all that's 
+left to the user is creating an Interface which provides the signature for the remote call. Using that as a basis, 
+Feign cares about generating the application code on the fly and passing to the client. 
+Although I think that using Feign can help building clean and slight applications, I resigned to integrate it into my
+project. The reason for that simply is that in my opinion implementing remote calls in a verbose way instead of 
+abstracting things away behind Feign provides a much better demo of what's really going on and helps to understand the 
+steps which are performed (reaching out to service discovery, doing client-side load balancing, sending HTTP request). 
+In a productive environment, using Feign would of course be a reasonable choice.        
+    
+
+
+
+
+
+## Shipping the weather app to our Pi cluster 
+
+At this point, I guess you have a rough impression of the tools I used as well as the decisions I made for my 
+distributed demo application. The next step was developing a strategy for bringing the single services to the Docker 
+cluster which, as I already mentioned at the beginning, already existed and was the motivation for doing this project
+anyway. 
+
+
+### Change happens
+
+So let's briefly recap where I've been before I started my project:
+     
+ + The existing Docker cluster consisted of six RaspberryPis as well as a single Intel NUC.
+ + The OS driving the Pis was [Hypriot](http://blog.hypriot.com/) Version 0.5 "Will" (I really like these guys for 
+ their references on _Pirates of the Caribbean_).
+ + On the NUC, we setup Debian "Jessie".
+ + On the Pis as well as the NUC, we started with Docker Engine version 1.8.2, Docker Machine 0.4.1 and Docker Swarm 
+ 0.4.0.
+ + HypriotOS Linux kernel was 4.1.8.
+ + We established a Docker swarm, with the NUC as the master node and the RaspberryPis as a cluster of worker nodes. 
+ + On top of that, the NUC as the swarm master node also ran [Shipyard](https://shipyard-project.com/), which 
+ provides a very nice GUI for Docker container and swarm management. 
+ 
+ 
+When we just finished that project in January 2016, this setup worked perfectly. However, problems emerged when I 
+updated the whole cluster about six months later:
+   
+ + After having installed updates on every cluster node, the Intel NUC suddenly was on Docker 1.12. At the same time,
+  I couldn't get beyond Docker 1.10 with the Hypriot version running on the Pi cluster.
+ + As a consequence, building on top the new swarm mode which came with Docker Engine 1.12 was not possible in my case. 
+ + I also realized there wasn't full backward compatibility between the Docker Machine versions on the NUC and the 
+ Pis after the update.
+ + In the meantime, Docker launched a new version of their image registry. This was not so good for me since the 
+ Shipyard release running on the NUC did not support the new API. 
+ 
+ 
+Just to make things clear: My original schedule for the project didn't respect the costs of setting up the entire 
+cluster from scratch, including flashing every single Pi with the latest Hypriot release. Although that would have been 
+the best approach in my opinion in order to start with a proper setup, I decided to live with that and make the best 
+out of it. Unfortunately, I had almost finished the project when I learned that replacing the existing Docker 
+installation on the Pis with the Raspbian release could have mitigated my problems 
+(at this point, thanks to Hypriot team member Dieter Reuter).  
+ 
+     
+
+### Wrap the weather app in Docker images      
+
+Luckily for me, taking the weather consumer service, the producer service as well as the Eureka service and building 
+Docker images around them was very easy. I added Dockerfiles to the service's top level directories in order to be 
+able to build images from the command line. The most interesting part here was finding proper base images for 
+executing Java applications on ARM devices. At this point, the Hypriot team once more did great work and already 
+published the _hypriot/rpi-java_ image on [Docker Hub](https://hub.docker.com/r/hypriot/rpi-java/). The Dockerfile I 
+ended up with for the producer service looks like this:
+      
+{% highlight java %}
+FROM hypriot/rpi-java
+ADD ./target/producer.jar producer.jar
+COPY api_key /tmp/api_key
+ENTRYPOINT ["java", "-jar", "producer.jar"]
+{% endhighlight %}       
+
+
+You see that this Dockerfile is actually very simple. All it does is taking the JAR from the target directory (after 
+the build), copy it into the image along with the OpenWeatherMap API key and finally start it up as soon as a 
+container is created from that image. I won't go into the Dockerfiles for the consumer service as well as the Eureka 
+service, since they look almost the same.
+  
+
+### Launching the containers  
+
+Since the orchestration setup on the cluster did no longer work properly, I decided on a minimalistic approach which 
+was connecting to every single RaspberryPi node via SSH and manually starting the containers. I think everyone agrees 
+that this is not the way things should be. However, I also knew that doing it this way would save me lots of time and 
+effort compared to trying to fix the cluster. I hope that I will have the possibility to take my time and fix this in 
+the future, since managing containers this way didn't feel really good.
+Nevertheless, I went through the following steps for checking my containerized demo application:
+
+ + Starting off with the service discovery, I connected to the Intel NUC via SSH and launched a Eureka container:
+   
+   `docker run -d localhost:5000/eureka --name eureka`
+   
+   (I set up my own Docker Registry on the Intel NUC, that's where "localhost:5000" comes from).
+   
+ 
 
 
 ## CI workflow
@@ -428,6 +564,15 @@ keeps me from having to hard code an IP address, in this case the Eureka server 
 
 
 ## Sources
+
+* Netflix, Inc. (2016). _Eureka at a glance_. [online] Available at:
+  [https://github.com/Netflix/eureka/wiki/Eureka-at-a-glance](https://github
+  .com/Netflix/eureka/wiki/Eureka-at-a-glance)  
+  [Accessed 11 Dec. 2016].
+  
+* Netflix, Inc. (2016). _How to Use_. [online] Available at:
+[https://github.com/Netflix/Hystrix/wiki/How-To-Use](https://github.com/Netflix/Hystrix/wiki/How-To-Use)
+[Accessed 04 Dec. 2016].
 
 * Netflix, Inc. (2016). _Netflix/eureka_. [online] Available at:
 [https://github.com/Netflix/eureka](https://github.com/Netflix/eureka)
@@ -437,9 +582,9 @@ keeps me from having to hard code an IP address, in this case the Eureka server 
 [https://github.com/Netflix/Hystrix](https://github.com/Netflix/Hystrix)
 [Accessed 05 Dec. 2016].
 
-* Netflix, Inc. (2016). _How to Use_. [online] Available at:
-[https://github.com/Netflix/Hystrix/wiki/How-To-Use](https://github.com/Netflix/Hystrix/wiki/How-To-Use)
-[Accessed 04 Dec. 2016].
+* Netflix, Inc. (2016). _Netflix/ribbon_. [online] Available at:
+[https://github.com/Netflix/ribbon](https://github.com/Netflix/ribbon)
+[Accessed 11 Dec. 2016].
 
 * Pivotal Software. (2016).  _Spring Cloud Netflix_. [online] Available at: 
 [http://cloud.spring.io/spring-cloud-netflix/spring-cloud-netflix.html](http://cloud.spring
