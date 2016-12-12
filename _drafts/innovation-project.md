@@ -731,6 +731,8 @@ That's exactly what I did on the Intel NUC to configure a private registry for m
    Note that the _pushImage_ flag is optional and can be omitted if for some reason the resulting image shall not be 
    pushed after the build. 
         
+        
+<br/>        
 
 ## Sources
 
