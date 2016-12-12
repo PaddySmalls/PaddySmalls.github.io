@@ -11,6 +11,7 @@ term and finally resulted in a individual project I worked on over the past few 
 
 <!--more-->
 
+<br/>
 
 ## It all started with some RaspberryPis..
 
@@ -52,6 +53,9 @@ later on.
     NUC as the "cluster manager" as well as a Pi cluster of "workers".</small>
 </div>
 
+
+<br/>
+
 ## Distributed systems patterns
 
 In order to keep things manageable, I decided on three essential and popular distributed systems patterns I wanted 
@@ -84,6 +88,7 @@ In the next section, we will take a short look at what the application I develop
 we can move forward to the frameworks and tools which provide an implementation of these patterns and see how 
 these can be leveraged to provide an app with real resilience.
   
+<br/>
   
 ## The distributed weather service
 
@@ -108,6 +113,7 @@ HTTP requests from the consumer service, contacts the [OpenWeatherMap](http://op
 the response to a subset of information and finally sends it to the consumer service in JSON format.
  
 
+<br/>
 
 ## Microservices with Spring Boot
 
@@ -147,6 +153,8 @@ built-in support for the Netflix OSS tools I intended to apply to my project.
 module and significantly reduces the costs for integrating these into existing applications. I will go deeper into 
 that during the next sections.  
  
+ 
+<br/> 
 
 ## Hystrix - A circuit breaker implementation for microservices
 
@@ -300,7 +308,7 @@ the request when the OpenWeatherMap API (hopefully) responds sooner or later.
 The same approach based on Hystrix is used in order to protect the weather consumer from a failing producer service. 
     
  
-    
+<br/>    
     
 ## Loosely coupling weather consumer and producer
      
@@ -471,7 +479,7 @@ In a productive environment, using Feign would of course be a reasonable choice.
 
 
 
-
+<br/>
 
 ## Shipping the weather app to our Pi cluster 
 
@@ -550,20 +558,189 @@ effort compared to trying to fix the cluster. I hope that I will have the possib
 the future, since managing containers this way didn't feel really good.
 Nevertheless, I went through the following steps for checking my containerized demo application:
 
- + Starting off with the service discovery, I connected to the Intel NUC via SSH and launched a Eureka container:
+ + Starting off with the service discovery, I connected to the Intel NUC via SSH and launched a single Eureka container:
    
-   `docker run -d localhost:5000/eureka --name eureka`
-   
-   (I set up my own Docker Registry on the Intel NUC, that's where "localhost:5000" comes from).
+   `$ docker run -d -p 8761:8761 localhost:5000/eureka --name eureka`
    
  
+ + The next step was starting several instances of my producer service on the RaspberryPi cluster:
+ 
+    `$ docker run -d localhost:5000/weather-producer --name producer`
+    
+ 
+ + Finally, I launched as single instance of the consumer service on the NUC:
+     
+     `$ docker run -d -p 8088:8088 localhost:5000/weather-consumer --name consumer`
+     
+     
+Note that I set up my own Docker Registry on the Intel NUC, that's why the I address the Docker images with 
+the "localhost:5000" prefix here.  
+   
+   
+   
+### Facing some networking issues
+    
+As soon as I shipped my services to the cluster for the first time, everything seemed to work well. All containers 
+came up, the producer services registered themselves with Eureka and were ready to get looked up by the consumer 
+service. So far, so good. But although the consumer app was able to do lookups, no producer instance could be reached
+and I got was "connection refused" error messages. Something was definitely wrong.
+Shortly afterwards, it began to on me when I recognized that all the producer services running on the Pi cluster 
+published a 172.17.0.x IP address to Eureka, although the hosts within were statically assigned an internal IP address 
+from the range 141.62.66.x.    
+To understand what was happening here, you have to understand how Docker networking works by default: Each host 
+running a Docker daemon has a _docker0_ network interface, which in my case had IP 172.17.0.1 (surprise, 
+surprise) on each host. By default, every container is bound to that network interface, which allows it to access the
+internet, but protects it from being accessed from the outside via any other network interface unless one or more ports 
+get explicitly published. This is called "bridge networking". Since every host has its own _docker0_ interface, the 
+consumer service on the NUC actually searched for the producer service containers within the NUC's local bridge 
+network, instead of reaching out to the public IP addresses of the Pis. So the challenge was finding a way to    
+make the producers writing their host's __public__ IP address into the service discovery, which was not so easy 
+because the containerized apps had no idea of the host's network interfaces. Everything they saw was _docker0_.  
+When discussing that problem with Docker Captain Alex Ellis \(<a href="https://twitter
+.com/alexellisuk">@alexellisuk</a>\) at _Docker Distributed Systems Summit_ in Berlin, he told me about a Docker 
+networking feature called "overlay network". In short, this allows for defining container networks which can span 
+multiple Docker hosts. On top of that, you get DNS for free, meaning that every container within the overlay network can
+be reached by a network alias. In case there're several containers with the same alias, you also get fully transparent 
+load balancing (to understand load balancing in Docker in depth, 
+<a href="http://www.linuxvirtualserver.org/whatis.html">this</a> is a great place to start in my opinion). This 
+exactly sounded like the solution to my problem!  
+            
+    
+### Setting up the overlay network   
+    
+Enabling Multi-host networking for my Docker container setup required a little bit of additional work. The reason for
+that was that an overlay network in Docker uses a key-value store under the hood to keep track of the Docker hosts 
+participating in the network. Since Docker 1.12, Docker Engine ships with an integrated key-value store, which 
+makes managing any additional dependencies (that can possibly fail) obsolete. But since my RaspberryPis ran Docker 1
+.10, I could not rely on this new feature and had to setup my own key-value store. In order to get the overlay 
+network up and running, I performed the following steps:
+         
+ + I downloaded and installed (Apache ZooKeeper)[https://zookeeper.apache.org] on the NUC in order to provide the 
+ necessary key-value store which for getting started with multi-host networking. By the way, needless to say you can 
+ also use a Docker container to do this ;). 
+ 
+ + Then, all the Docker Engines on the Pis and the NUC had to be prepared for multi-host networking. I added several 
+ options to the Docker daemon configuration in order to make it join the overlay network by registering with ZooKeeper:
+ 
+        ExecStart=/usr/bin/dockerd -H tcp://127.0.0.1:2375 
+        -H unix:///var/run/docker.sock 
+        --cluster-store=zk://{NUC_IP}/docker:2181 
+        --cluster-advertise=eth0:2375
+     
+ + Afterwards, I restarted the Docker daemons and checked if they properly registered with ZooKeeper.
+         
+ + The last step is to create the actual overlay network. Although I also did that on the Intel NUC as the core 
+ component of my cluster, this can be done from any node within the network:
+           
+        $ docker network create --driver overlay --subnet=10.0.9.0/24 my-overlay
+    
+    
+That's it. From then on, I could easily attach my containers to the newly created overlay network when starting them:
+ 
+    $ docker run -d --network my-overlay --network-alias producer localhost:5000/weather-producer`
 
+From the consumer service's perspective, an arbitrary producer microservice could now be reached by searching for a 
+"producer" within the overlay network. If you think carefully about that, you might notice that having
+Eureka as a service discovery was no longer necessary at this point, since the overlay network already resolved the 
+"producer" alias to the IP address wanted and therefore de facto eliminated the need for any external service 
+discovery. But again, since I planned to use the Eureka GUI for demo purposes, I decided to keep it and use the 
+overlay network for addressing the Eureka server by its container alias "eureka", which spared me the need to hard code 
+the IP within the consumer service.  Besides container DNS, the overlay network gave me what was most important to me: 
+Valid IP addresses across the whole cluster. So, every app published an IP from the range 10.0.9.x to Eureka after it's 
+container had joined the overlay network. In a productive environment, resigning the additional round trip introduced 
+by the external service discovery and relying on Docker DNS as well as load balancing instead might be reasonable due 
+to performance reasons. 
+    
+    
+<br/>    
 
 ## CI workflow
 
+Another aspect of my project was developing a continuous integration workflow that includes automatically 
+compiling my services, building runnable JARs, wrap them in Docker images and push them to a image registry. While 
+there're many ways and tools to put that into practice, I  elaborated the following approach:
+   
+   + A Jenkins CI server checks out the source code from Github and triggers a Maven build.
+   + At first, Maven compiles the code and packages everything up as a JAR file by means of the 
+   [Spring Boot Maven Plugin](http://docs.spring.io/spring-boot/docs/current/reference/html/build-tool-plugins-maven-plugin.html).
+   + Subsequently, the [Spotify Docker-Maven-Plugin](https://github.com/spotify/docker-maven-plugin) is used to build
+    a Docker image based on a Dockerfile within the project's root directory.
+   + After a successful Docker build, the Spotify Docker-Maven Plugin also takes care of pushing the resulting image 
+   to a Docker registry.
+   
+   <div class="image-div"> 
+       <img src="{{site.url}}/assets/2016-11-12/ci-workflow.png" class="image-with-caption"/><br/>
+       <small class="img-caption"><span>Figure 3: </span>CI tooling and workflow. 
+       [Icon sources: <a href="https://jenkins.io/images/226px-Jenkins_logo.svg.png">Jenkins</a>,
+       <a href="https://blog.docker.com/media/docker_registry.png">Docker</a>,
+       <a href="https://maven.apache.org/images/maven-logo-black-on-white.png">Maven</a>,
+       <a href="http://www.ethode.com/dotAsset/a3721082-791e-40a8-88c4-6909d4e114d3.png">Spring Boot</a>,
+       <a href="https://image.freepik.com/free-icon/jar-file-format_318-45098.png">JAR</a>]
+       </small>
+   </div>
+   
+   
+   
+### Setting up a private Docker Registry
+   
+Launching a private registry for Docker images is not very difficult. Docker offers its image registry - how could it
+be any different - as a Docker image. The following command is sufficient to pull the latest version of registry v2 
+from Docker Hub and launch it on port 5000:
+      
+      $ docker run -d -p 5000:5000 --name registry registry:2
+   
+That's exactly what I did on the Intel NUC to configure a private registry for my microservices images.
+  
+   
 
+### Building an executable JAR with Spring Boot
+
+  
+   
+   
+
+### Building and pushing Docker images with Spotify Docker-Maven-Plugin
+
+ The Docker-Maven-Plugin by Spotify can be directly configured within the _pom.xml_ file and seamlessly integrates the
+ process of building an image and optionally pushing it to Docker Hub or any private registry into a Maven build. 
+ Taking the weather consumer service as an example, the plugin configuration may look like this: 
+  
+  {% highlight xml %}
+  <plugin>
+    <groupId>com.spotify</groupId>
+    <artifactId>docker-maven-plugin</artifactId>
+    <version>0.4.11</version>
+    <configuration>
+        <dockerDirectory>.</dockerDirectory>
+        <imageName>localhost:5000/weather-consumer</imageName>
+        <imageTags>
+            <imageTag>latest</imageTag>
+        </imageTags>
+    </configuration>
+  </plugin>
+  {% endhighlight %}
+   
+   
+   There's absolutely no rocket science here. I simply tell the plugin to look for a Dockerfile in the project's root
+   directory (we already saw a sample file), define the image name (which is prefixed with the repository location) 
+   and tag it as "latest". In order to make the plugin do its work, invoke Maven from CLI along with the following 
+   goals specified:
+     
+        $ mvn docker:build -DpushImage
+        
+   Note that the _pushImage_ flag is optional and can be omitted if for some reason the resulting image shall not be 
+   pushed after the build. 
+        
 
 ## Sources
+
+* Docker, Inc. (2016). _Docker Registry_. [online] Available at: 
+[https://docs.docker.com/registry/](https://docs.docker.com/registry/)
+[Accessed 12 Dec. 2016]
+
+* Docker, Inc. (2016). _Get started with multi-host networking_. [online] Available at:
+  [https://docs.docker.com/engine/userguide/networking/get-started-overlay/](https://docs.docker.com/engine/userguide/networking/get-started-overlay/)
+  [Accessed 12 Dec. 2016]
 
 * Netflix, Inc. (2016). _Eureka at a glance_. [online] Available at:
   [https://github.com/Netflix/eureka/wiki/Eureka-at-a-glance](https://github
@@ -590,3 +767,4 @@ Nevertheless, I went through the following steps for checking my containerized d
 [http://cloud.spring.io/spring-cloud-netflix/spring-cloud-netflix.html](http://cloud.spring
 .io/spring-cloud-netflix/spring-cloud-netflix.html)  
 [Accessed 05 Dec. 2016].
+
