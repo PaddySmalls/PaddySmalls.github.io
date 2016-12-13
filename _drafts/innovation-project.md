@@ -474,7 +474,23 @@ Although I think that using Feign can help building clean and slight application
 project. The reason for that simply is that in my opinion implementing remote calls in a verbose way instead of 
 abstracting things away behind Feign provides a much better demo of what's really going on and helps to understand the 
 steps which are performed (reaching out to service discovery, doing client-side load balancing, sending HTTP request). 
-In a productive environment, using Feign would of course be a reasonable choice.        
+In a productive environment, using Feign would of course be a reasonable choice.
+        
+        
+### Testing resilience
+    
+At least, I ran some tests to see if my application was actually as resilient as I expected it to be. I interrupted 
+the network connection between consumer and producer and between producer and the Internet respectively and watched 
+the behavior of my consumer service. As you can see in the following screenshot, the consumer service serves an 
+outdated response from its cache if the producer service is not available or there's no connection between them. The 
+producer service does exactly the same thing in case it can't access the OpenWeatherMap API.
+ 
+ <div class="image-div"> 
+        <img src="{{site.url}}/assets/2016-11-12/producer_unavailable.png" class="image-with-caption"/><br/>
+        <small class="img-caption"><span>Figure 4: </span>The consumer service informs the user that the remote 
+        service is not available and serves an outdated response as a fallback. 
+        </small>
+    </div>
     
 
 
@@ -559,18 +575,19 @@ the future, since managing containers this way didn't feel really good.
 Nevertheless, I went through the following steps for checking my containerized demo application:
 
  + Starting off with the service discovery, I connected to the Intel NUC via SSH and launched a single Eureka container:
-   
-   `$ docker run -d -p 8761:8761 localhost:5000/eureka --name eureka`
+ 
+       $ docker run -d -p 8761:8761 localhost:5000/eureka --name eureka
    
  
  + The next step was starting several instances of my producer service on the RaspberryPi cluster:
  
-    `$ docker run -d localhost:5000/weather-producer --name producer`
+       $ docker run -d localhost:5000/weather-producer --name producer
     
  
  + Finally, I launched as single instance of the consumer service on the NUC:
      
-     `$ docker run -d -p 8088:8088 localhost:5000/weather-consumer --name consumer`
+       $ docker run -d -p 8088:8088 localhost:5000/weather-consumer 
+         --name consumer
      
      
 Note that I set up my own Docker Registry on the Intel NUC, that's why the I address the Docker images with 
@@ -632,12 +649,14 @@ network up and running, I performed the following steps:
  + The last step is to create the actual overlay network. Although I also did that on the Intel NUC as the core 
  component of my cluster, this can be done from any node within the network:
            
-        $ docker network create --driver overlay --subnet=10.0.9.0/24 my-overlay
+         $ docker network create --driver overlay --subnet=10.0.9.0/24 
+           my-overlay
     
     
 That's it. From then on, I could easily attach my containers to the newly created overlay network when starting them:
  
-    $ docker run -d --network my-overlay --network-alias producer localhost:5000/weather-producer`
+    $ docker run -d --network my-overlay --network-alias producer 
+      localhost:5000/weather-producer
 
 From the consumer service's perspective, an arbitrary producer microservice could now be reached by searching for a 
 "producer" within the overlay network. If you think carefully about that, you might notice that having
@@ -670,7 +689,7 @@ there're many ways and tools to put that into practice, I  elaborated the follow
    
    <div class="image-div"> 
        <img src="{{site.url}}/assets/2016-11-12/ci-workflow.png" class="image-with-caption"/><br/>
-       <small class="img-caption"><span>Figure 3: </span>CI tooling and workflow. 
+       <small class="img-caption"><span>Figure 5: </span>CI tooling and workflow. 
        [Icon sources: <a href="https://jenkins.io/images/226px-Jenkins_logo.svg.png">Jenkins</a>,
        <a href="https://blog.docker.com/media/docker_registry.png">Docker</a>,
        <a href="https://maven.apache.org/images/maven-logo-black-on-white.png">Maven</a>,
@@ -695,8 +714,23 @@ That's exactly what I did on the Intel NUC to configure a private registry for m
 
 ### Building an executable JAR with Spring Boot
 
-  
-   
+ Building a JAR file which can be launched from the command line usually requires some extra work. You need to create
+ a MANIFEST file, use it to define the main class whose main method shall be executed on startup, include the 
+ resources the application needs for execution (e.g. configuration files) and finally package everything up into a 
+ single archive. If you use Gradle or Maven for build management, there're plugins which let you integrate this 
+ procedure into the build process, but all these information must still be provided.    
+ This is where the Spring Boot Maven plugin comes very handy. All you have to do is add it to your _pom.xml_ file. 
+ The plugin will do its job as soon as the _package_ goal gets executed.  
+ 
+ {% highlight xml %}
+ <plugin>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-maven-plugin</artifactId>
+ </plugin>
+ {% endhighlight %}
+ 
+ The resulting JAR contains everything that's needed for running a Spring Boot based webapp. Simply do _java -jar 
+ myWebapp.jar_ and give it a try.
    
 
 ### Building and pushing Docker images with Spotify Docker-Maven-Plugin
@@ -730,7 +764,36 @@ That's exactly what I did on the Intel NUC to configure a private registry for m
         
    Note that the _pushImage_ flag is optional and can be omitted if for some reason the resulting image shall not be 
    pushed after the build. 
+   
+   
+### Using Jenkins for orchestrating the build 
         
+I won't explain how to setup a Jenkins server here, since there're lots of great resources out there showing how to 
+get than done. There's also not much I have to say here about how I configured the jobs in order to build and package
+my services. Since the whole process of compiling the sources, building executable JARs, packing them in Docker 
+images and store the images in my own registry is covered by the Maven build, there were only two things I had to 
+configure in Jenkins:
+      
+ 1. Checking out the source code from Github.
+ 
+ 2. Starting the maven build by executing the following shell command:
+        
+        $ mvn clean package docker:build -DpushImage 
+      
+
+I already covered what exactly happens when the _package_ and _docker:build_ Maven goals get executed so I won't go 
+further into that. 
+        
+<br/>        
+                
+## Conclusion and possible improvements        
+
+So, I'm aware that this was lots of stuff about many different tools and frameworks condensed within a single blog 
+post. However, for me it was a valuable experience to build my own mircoservices development and deployment stack 
+from scratch, by simply "plumbing" different components and libraries into a fully functional software and system 
+architecture.  
+        
+
         
 <br/>        
 
