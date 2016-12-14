@@ -788,12 +788,35 @@ further into that.
                 
 ## Conclusion and possible improvements        
 
-So, I'm aware that this was lots of stuff about many different tools and frameworks condensed within a single blog 
-post. However, for me it was a valuable experience to build my own mircoservices development and deployment stack 
-from scratch, by simply "plumbing" different components and libraries into a fully functional software and system 
-architecture.  
+So, I appreciate that this was lots of information on many different tools and frameworks condensed within a single 
+blog post. However, I think it has been a valuable experience for me to build my own mircoservices development and 
+deployment stack from scratch by "plumbing" different components and libraries into a fully functional 
+software and system architecture. In doing so, I didn't want to copy any existing and well-proven pipelines,but 
+rather focused on finding the tool which does things the way I wanted it to be.  
+Of course, the current status of the project offers great potential for improvements. Here's a list of things that 
+came to my mind: 
+    
+ + Consumer service and producers communicate via RESTful HTTP. Although that does the job, relying on HTTP with all 
+ its headers and metadata for service-to-service communication introduces lots of overhead in the backend. As an 
+ alternative, using [gRPC](http://www.grpc.io/) by Google allows for doing remote calls by means of a binary protocol
+ with a minimal foot print. [This article](http://highscalability.com/blog/2016/10/12/lessons-learned-from-scaling-uber-to-2000-engineers-1000-ser.html)
+ is a review of a talk given by Uber Chief Systems Architect Matt Ranney, who also discusses that in depth. 
+ 
+ + Using gRPC as a communication protocol would further allow for implementing services in other languages than these
+  running on JVM. However, that would also mean that some research must be done on which circuit breaker 
+  implementations of service discovery clients are available for a certain language.  
+     
+ + By putting all the build steps (compiling, image creation) in a single Maven build, the whole build fails if e.g. 
+ for some reason the image can't be pushed to the image repository and must be started from scratch. Splitting up the
+ process into several more or less independent steps might make sense in this case.
         
+ + I already mentioned the problems I had when updating Docker on my cluster. Nevertheless, bringing all Docker 
+ Engines within the cluster to at least Docker 1.12 would make comfortable deployment of containers much more easier 
+ and would also allow me to take advantage of the latest Swarm Mode features introduced with that version.
+   
 
+As you can see, there's still plenty of work to do and the project is far from being finished.          
+Cheers!
         
 <br/>        
 
