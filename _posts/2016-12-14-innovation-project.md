@@ -815,7 +815,10 @@ came to my mind:
  and would also allow me to take advantage of the latest Swarm Mode features introduced with that version.
    
 
-As you can see, there's still plenty of work to do and the project is far from being finished.          
+As you can see, there's still plenty of work to do and the project is far from being finished. If you like this post 
+or want to grant me some feedback, feel free to contact me on [Twitter](https://twitter.com/Apophis1990). The source 
+code of my project can be found on [Github](https://github.com/PaddySmalls/hello_microservices).       
+    
 Cheers!
         
 <br/>        
