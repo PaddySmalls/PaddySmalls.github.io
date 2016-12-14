@@ -829,6 +829,10 @@ Cheers!
 * Docker, Inc. (2016). _Get started with multi-host networking_. [online] Available at:
   [https://docs.docker.com/engine/userguide/networking/get-started-overlay/](https://docs.docker.com/engine/userguide/networking/get-started-overlay/)
   [Accessed 12 Dec. 2016]
+  
+* Hypriot. (2016). _Get your all-in-one Docker playground now: HypriotOS reloaded!_. [online] Available at:
+  [http://blog.hypriot.com/post/get-your-all-in-one-docker-playground-now-hypriotos-reloaded/](http://blog.hypriot.com/post/get-your-all-in-one-docker-playground-now-hypriotos-reloaded/)
+  [Accessed 14 Dec. 2016]
 
 * Netflix, Inc. (2016). _Eureka at a glance_. [online] Available at:
   [https://github.com/Netflix/eureka/wiki/Eureka-at-a-glance](https://github
