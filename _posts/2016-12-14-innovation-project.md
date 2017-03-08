@@ -490,7 +490,7 @@ producer service does exactly the same thing in case it can't access the OpenWea
         <small class="img-caption"><span>Figure 4: </span>The consumer service informs the user that the remote 
         service is not available and serves an outdated response as a fallback. 
         </small>
-    </div>
+ </div>
     
 
 
