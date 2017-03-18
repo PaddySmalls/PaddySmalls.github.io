@@ -2,7 +2,7 @@
 highlighter:      rouge
 
 # gems
-gems: [jekyll-paginate, jekyll-gist]
+gems: [jekyll-paginate, jekyll-gist, jekyll-seo-tag]
 paginate:         5
 
 # Permalinks
@@ -19,3 +19,11 @@ baseurl:          /
 github-url: https://github.com/PaddySmalls
 linkedin-url: https://de.linkedin.com/in/pkleindienst
 twitter-url: https://twitter.com/Apophis1990
+
+# Additional details for Jekyll SEO plugin
+social:
+  name: Patrick Kleindienst
+  links:
+    - https://twitter.com/Apophis1990
+    - https://de.linkedin.com/in/pkleindienst
+    - https://github.com/PaddySmalls

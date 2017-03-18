@@ -25,4 +25,5 @@ group :jekyll_plugins do
    gem "jekyll-gist", "~> 1.4.0"
    gem "redcarpet", "~> 3.3.4"
    gem "pygments.rb", "~> 0.6.3"
+   gem 'jekyll-seo-tag'
 end
