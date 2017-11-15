@@ -16,7 +16,7 @@ baseurl:          /
 
 
 # Social URLs
-github-url: https://github.com/PaddySmalls
+github-url: https://github.com/apophis90
 linkedin-url: https://de.linkedin.com/in/pkleindienst
 twitter-url: https://twitter.com/Apophis1990
 
@@ -26,4 +26,4 @@ social:
   links:
     - https://twitter.com/Apophis1990
     - https://de.linkedin.com/in/pkleindienst
-    - https://github.com/PaddySmalls
+    - https://github.com/apophis90
