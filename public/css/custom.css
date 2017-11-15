@@ -46,7 +46,7 @@
 
 .tags a {
     padding: 0 10px 0 12px;
-    background: #166c90;
+    background: #053448;
     text-decoration: none;
     white-space: nowrap;
     -moz-border-radius-bottomright:4px;
@@ -65,7 +65,7 @@
     left:-12px;
     width:0;
     height:0;
-    border-color:transparent #166c90 transparent transparent;
+    border-color:transparent #053448 transparent transparent;
     border-style:solid;
     border-width:12px 12px 12px 0;
 }
@@ -82,7 +82,7 @@
     -webkit-border-radius:2px;
     border-radius:2px;
     background: white;
-    -moz-box-shadow:-1px -1px 2px #166c90;
-    -webkit-box-shadow:-1px -1px 2px #166c90;
-    box-shadow:-1px -1px 2px #166c90;
+    -moz-box-shadow:-1px -1px 2px #053448;
+    -webkit-box-shadow:-1px -1px 2px #053448;
+    box-shadow:-1px -1px 2px #053448;
 }
