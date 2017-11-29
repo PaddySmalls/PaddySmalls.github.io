@@ -2,12 +2,8 @@
 highlighter:      rouge
 
 # gems
-gems: [jekyll-paginate-v2, jekyll-seo-tag]
-
-# pagination
-pagination:
-  enabled: true
-  per_page: 10
+gems: [jekyll-paginate, jekyll-seo-tag]
+paginate:         5
 
 # Permalinks
 permalink:        pretty

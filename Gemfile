@@ -21,8 +21,9 @@ gem "jekyll", "3.3.0"
 # If you have any plugins, put them here!
 group :jekyll_plugins do
    gem "jekyll-feed", "~> 0.9.2"
-   gem "jekyll-paginate-v2", "~> 1.9.0"
+   #gem "jekyll-paginate-v2", "~> 1.9.0"
    #gem "jekyll-gist", "~> 1.4.0"
+   gem "jekyll-paginate", "~> 1.1.0"
    gem "redcarpet", "~> 3.4.0"
    gem "pygments.rb", "~> 1.2.0"
    gem 'jekyll-seo-tag'
